@@ -251,7 +251,7 @@ static size_t s_lastNITZTimeDataSize;
 #endif
 
 /*******************************************************************/
-static int sendResponse (Parcel &p, RIL_SOCKET_ID socket_id);
+static int sendResponse (Parcel &p, RIL_SOCKET_ID socket_id, int unsolRes);
 
 static void dispatchVoid (Parcel& p, RequestInfo *pRI);
 static void dispatchString (Parcel& p, RequestInfo *pRI);
@@ -312,6 +312,7 @@ static int responseHardwareConfig(Parcel &p, void *response, size_t responselen)
 static int responseDcRtInfo(Parcel &p, void *response, size_t responselen);
 static int responseRadioCapability(Parcel &p, void *response, size_t responselen);
 static int responseSSData(Parcel &p, void *response, size_t responselen);
+static int responseIntsGetPreferredNetworkType(Parcel &p, void *response, size_t responselen);
 static int responseLceStatus(Parcel &p, void *response, size_t responselen);
 static int responseLceData(Parcel &p, void *response, size_t responselen);
 static int responseActivityData(Parcel &p, void *response, size_t responselen);
@@ -360,6 +361,10 @@ static CommandInfo s_commands[] = {
 
 static UnsolResponseInfo s_unsolResponses[] = {
 #include "ril_unsol_commands.h"
+};
+
+static UnsolResponseInfo s_unsolResponses_v[] = {
+#include "ril_unsol_commands_vendor.h"
 };
 
 /* For older RILs that do not support new commands RIL_REQUEST_VOICE_RADIO_TECH and
@@ -551,7 +556,7 @@ processCommandBuffer(void *buffer, size_t buflen, RIL_SOCKET_ID socket_id) {
         pErr.writeInt32 (token);
         pErr.writeInt32 (RIL_E_GENERIC_FAILURE);
 
-        sendResponse(pErr, socket_id);
+        sendResponse(pErr, socket_id, 0);
         return 0;
     }
 
@@ -2327,9 +2332,9 @@ sendResponseRaw (const void *data, size_t dataSize, RIL_SOCKET_ID socket_id) {
 
     return 0;
 }
-
+int temp = 0;
 static int
-sendResponse (Parcel &p, RIL_SOCKET_ID socket_id) {
+sendResponse (Parcel &p, RIL_SOCKET_ID socket_id, int unsolRes) {
     printResponse;
     return sendResponseRaw(p.data(), p.dataSize(), socket_id);
 }
@@ -2358,6 +2363,41 @@ responseInts(Parcel &p, void *response, size_t responselen) {
     /* each int*/
     startResponse;
     for (int i = 0 ; i < numInts ; i++) {
+        appendPrintBuf("%s%d,", printBuf, p_int[i]);
+        p.writeInt32(p_int[i]);
+    }
+    removeLastChar;
+    closeResponse;
+
+    return 0;
+}
+
+static int
+responseIntsGetPreferredNetworkType(Parcel &p, void *response, size_t responselen) {
+    int numInts;
+
+    if (response == NULL && responselen != 0) {
+        RLOGE("invalid response: NULL");
+        return RIL_ERRNO_INVALID_RESPONSE;
+    }
+    if (responselen % sizeof(int) != 0) {
+        RLOGE("responseInts: invalid response length %d expected multiple of %d\n",
+            (int)responselen, (int)sizeof(int));
+        return RIL_ERRNO_INVALID_RESPONSE;
+    }
+
+    int *p_int = (int *) response;
+
+    numInts = responselen / sizeof(int);
+    p.writeInt32 (numInts);
+
+    /* each int*/
+    startResponse;
+    for (int i = 0 ; i < numInts ; i++) {
+        if (i == 0 && p_int[0] == 7) {
+            RLOGD("REQUEST_GET_PREFERRED_NETWORK_TYPE: NETWORK_MODE_GLOBAL => NETWORK_MODE_WCDMA_PREF");
+            p_int[0] = 0;
+        }
         appendPrintBuf("%s%d,", printBuf, p_int[i]);
         p.writeInt32(p_int[i]);
     }
@@ -2494,21 +2534,13 @@ static int responseCallList(Parcel &p, void *response, size_t responselen) {
         p.writeInt32(p_cur->als);
         p.writeInt32(p_cur->isVoice);
         p.writeInt32(p_cur->isVoicePrivacy);
+        p.writeInt32(0); /* chrono: send an extra zero before we send the number */
         writeStringToParcel(p, p_cur->number);
-        p.writeInt32(p_cur->numberPresentation);
-        writeStringToParcel(p, p_cur->name);
-        p.writeInt32(p_cur->namePresentation);
-        // Remove when partners upgrade to version 3
-        if ((s_callbacks.version < 3) || (p_cur->uusInfo == NULL || p_cur->uusInfo->uusData == NULL)) {
-            p.writeInt32(0); /* UUS Information is absent */
-        } else {
-            RIL_UUS_Info *uusInfo = p_cur->uusInfo;
-            p.writeInt32(1); /* UUS Information is present */
-            p.writeInt32(uusInfo->uusType);
-            p.writeInt32(uusInfo->uusDcs);
-            p.writeInt32(uusInfo->uusLength);
-            p.write(uusInfo->uusData, uusInfo->uusLength);
-        }
+        p.writeInt32(1); /* numberPresentation */
+        writeStringToParcel(p, NULL); /* name */
+        p.writeInt32(0); /* namePresentation */
+        p.writeInt32(0); /* UUS Information is absent */
+
         appendPrintBuf("%s[id=%d,%s,toa=%d,",
             printBuf,
             p_cur->index,
@@ -3836,10 +3868,10 @@ static int responseSimStatus(Parcel &p, void *response, size_t responselen) {
     if (s_callbacks.version <= LAST_IMPRECISE_RIL_VERSION) {
         if (responselen == sizeof (RIL_CardStatus_v6)) {
             responseSimStatusV6(p, response);
-        } else if (responselen == sizeof (RIL_CardStatus_v5)) {
+        } else if (responselen == sizeof (RIL_CardStatus_v5) || responselen == 436) {
             responseSimStatusV5(p, response);
         } else {
-            RLOGE("responseSimStatus: A RilCardStatus_v6 or _v5 expected\n");
+            RLOGE("responseSimStatus: A RilCardStatus_v6: %d or _v5:%d expected: %d\n", sizeof(RIL_CardStatus_v6),sizeof(RIL_CardStatus_v5),responselen);
             return RIL_ERRNO_INVALID_RESPONSE;
         }
     } else { // RIL version >= 13
@@ -5032,6 +5064,11 @@ RIL_onRequestAck(RIL_Token t) {
         return;
     }
 
+    if(pRI->pCI->requestNumber == 91) {
+        RLOGE("Avoid unknown");
+        return;
+    }
+
     socket_id = pRI->socket_id;
     fd = findFd(socket_id);
 
@@ -5051,14 +5088,14 @@ RIL_onRequestAck(RIL_Token t) {
             RLOGD ("RIL onRequestComplete: Command channel closed");
         }
 
-        sendResponse(p, socket_id);
+        sendResponse(p, socket_id, 0);
     }
 }
 
 extern "C" void
 RIL_onRequestComplete(RIL_Token t, RIL_Errno e, void *response, size_t responselen) {
     RequestInfo *pRI;
-    int ret;
+    int ret, request;
     int fd;
     size_t errorOffset;
     RIL_SOCKET_ID socket_id = RIL_SOCKET_1;
@@ -5070,11 +5107,16 @@ RIL_onRequestComplete(RIL_Token t, RIL_Errno e, void *response, size_t responsel
         return;
     }
 
+    if(pRI->pCI->requestNumber == 91) {
+        RLOGE("Avoid unknown");
+        return;
+    }
+
     socket_id = pRI->socket_id;
     fd = findFd(socket_id);
 
 #if VDBG
-    RLOGD("RequestComplete, %s", rilSocketIdToString(socket_id));
+    RLOGD("RequestComplete, socketid = %s requestNumber = %s", rilSocketIdToString(socket_id),requestToString(pRI->pCI->requestNumber));
 #endif
 
     if (pRI->local > 0) {
@@ -5123,7 +5165,7 @@ RIL_onRequestComplete(RIL_Token t, RIL_Errno e, void *response, size_t responsel
         if (fd < 0) {
             RLOGD ("RIL onRequestComplete: Command channel closed");
         }
-        sendResponse(p, socket_id);
+        sendResponse(p, socket_id, 0);
     }
 
 done:
@@ -5439,7 +5481,7 @@ void RIL_onUnsolicitedResponse(int unsolResponse, const void *data,
 #if VDBG
     RLOGI("%s UNSOLICITED: %s length:%d", rilSocketIdToString(soc_id), requestToString(unsolResponse), p.dataSize());
 #endif
-    ret = sendResponse(p, soc_id);
+    ret = sendResponse(p, soc_id, unsolResponse);
     if (ret != 0 && unsolResponse == RIL_UNSOL_NITZ_TIME_RECEIVED) {
 
         // Unfortunately, NITZ time is not poll/update like everything
@@ -5822,7 +5864,7 @@ requestToString(int request) {
         case RIL_UNSOL_RADIO_CAPABILITY: return "RIL_UNSOL_RADIO_CAPABILITY";
         case RIL_RESPONSE_ACKNOWLEDGEMENT: return "RIL_RESPONSE_ACKNOWLEDGEMENT";
         case RIL_UNSOL_PCO_DATA: return "RIL_UNSOL_PCO_DATA";
-        default: return "<unknown request>";
+        default: RLOGE("unknown request %d",request); return "<unknown request>";
     }
 }
 
