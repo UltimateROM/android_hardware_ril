@@ -3222,7 +3222,7 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
                if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else if (s_vendorFunctions->version <= 14) {
             if (numStrings != 15) {
-                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL");
+                RLOGE("getVoiceRegistrationStateResponse Invalid response: numStrings != 15 (%d)", numStrings);
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
             } else {
                 char **resp = (char **) response;
@@ -3285,7 +3285,7 @@ int radio::getDataRegistrationStateResponse(int slotId,
         } else if (s_vendorFunctions->version <= 14) {
             int numStrings = responseLen / sizeof(char *);
             if ((numStrings != 6) && (numStrings != 11)) {
-                RLOGE("getDataRegistrationStateResponse Invalid response: NULL");
+                RLOGE("getDataRegistrationStateResponse Invalid response: numstrings: %d", numStrings);
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
             } else {
                 char **resp = (char **) response;
