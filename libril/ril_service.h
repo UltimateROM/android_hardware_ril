@@ -613,6 +613,10 @@ int enterEmergencyCallbackModeInd(int slotId,
                                   int indicationType, int token, RIL_Errno e, void *response,
                                   size_t responselen);
 
+int responseVoid(int slotId,
+                 int indicationType, int token, RIL_Errno e, void *response,
+                 size_t responselen);
+
 int cdmaCallWaitingInd(int slotId,
                        int indicationType, int token, RIL_Errno e, void *response,
                        size_t responselen);
