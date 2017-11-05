@@ -63,7 +63,7 @@ namespace android {
 #define SOCKET3_NAME_RIL "rild3"
 #define SOCKET4_NAME_RIL "rild4"
 
-#define SOCKET_NAME_RIL_DEBUG "rild-debug"
+//#define SOCKET_NAME_RIL_DEBUG "rild-debug"
 
 #define ANDROID_WAKE_LOCK_NAME "radio-interface"
 
@@ -4907,7 +4907,7 @@ RIL_register (const RIL_RadioFunctions *callbacks) {
 #endif /* (SIM_COUNT == 4) */
 
 
-#if 1
+#if 0
     // start debug interface socket
 
     char *inst = NULL;
