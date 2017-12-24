@@ -3265,14 +3265,13 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
         VoiceRegStateResult voiceRegResponse = {};
         int numStrings = responseLen / sizeof(char *);
         if (response == NULL) {
-               RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL");
+               RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL, response == NULL");
                if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else if (s_vendorFunctions->version <= 14) {
-            if (numStrings < 3) {
-                RLOGE("%s Invalid response: Expected numStrings >= 3 (received:%d)",
-                    __func__, numStrings);
+            /*if (numStrings != 15) {
+                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL, numStrings != 15 (%d)", numStrings);
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
-            } else {
+            } else {*/
                 char **resp = (char **) response;
                 voiceRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
                 voiceRegResponse.rat = NULL;
@@ -3295,13 +3294,13 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
                     voiceRegResponse.reasonForDenial = ATOI_NULL_HANDLED_DEF(resp[13], 0);
                 fillCellIdentityFromVoiceRegStateResponseString(voiceRegResponse.cellIdentity,
                         numStrings, resp);
-            }
+            //}
         } else {
             RIL_VoiceRegistrationStateResponse *voiceRegState =
                     (RIL_VoiceRegistrationStateResponse *)response;
 
             if (responseLen != sizeof(RIL_VoiceRegistrationStateResponse)) {
-                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL");
+                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL, responseLen = %d, should be %d", responseLen, sizeof(RIL_VoiceRegistrationStateResponse));
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
             } else {
                 voiceRegResponse.regState = (RegState) voiceRegState->regState;
