@@ -3401,7 +3401,7 @@ int radio::getOperatorResponse(int slotId,
 #endif
     int mqanelements;
     char value[PROPERTY_VALUE_MAX];
-    property_get("ro.ril.telephony.mqanelements", value, "4");
+    property_get("ro.ril.telephony.mqanelements", value, "5");
     mqanelements = atoi(value);
 
     if (radioService[slotId]->mRadioResponse != NULL) {
@@ -3411,6 +3411,7 @@ int radio::getOperatorResponse(int slotId,
         hidl_string shortName;
         hidl_string numeric;
         int numStrings = responseLen / sizeof(char *);
+        //RLOGE("getOperatorResponse: numStrings = %d, should be %d", numStrings, mqanelements - 2);
         if (response == NULL || numStrings != mqanelements - 2) {
             RLOGE("getOperatorResponse Invalid response: NULL");
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
