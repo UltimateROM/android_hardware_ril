@@ -3963,6 +3963,8 @@ int radio::getNetworkSelectionModeResponse(int slotId,
         populateResponseInfo(responseInfo, serial, responseType, e);
         bool manual = false;
         int serviceClass;
+        RLOGE("getNetworkSelectionModeResponse: responseLen = %d", responseLen);
+
         if (response == NULL || responseLen != sizeof(int)) {
             RLOGE("getNetworkSelectionModeResponse Invalid response: NULL");
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
@@ -5085,6 +5087,8 @@ int radio::getDeviceIdentityResponse(int slotId,
 
         int numStrings = responseLen / sizeof(char *);
         hidl_string emptyString;
+        RLOGE("getDeviceIdentityResponse: numStrings = %d", numStrings);
+
         if (response == NULL || numStrings != 4) {
             RLOGE("getDeviceIdentityResponse Invalid response: NULL");
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
@@ -5416,6 +5420,8 @@ int radio::getImsRegistrationStateResponse(int slotId,
         bool isRegistered = false;
         int ratFamily = 0;
         int numInts = responseLen / sizeof(int);
+        RLOGE("getImsRegistrationStateResponse: numInts = %d", numInts);
+
         if (response == NULL || numInts != 2) {
             RLOGE("getImsRegistrationStateResponse Invalid response: NULL");
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
