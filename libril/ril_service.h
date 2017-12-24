@@ -613,10 +613,6 @@ int enterEmergencyCallbackModeInd(int slotId,
                                   int indicationType, int token, RIL_Errno e, void *response,
                                   size_t responselen);
 
-int responseVoid(int slotId,
-                 int indicationType, int token, RIL_Errno e, void *response,
-                 size_t responselen);
-
 int cdmaCallWaitingInd(int slotId,
                        int indicationType, int token, RIL_Errno e, void *response,
                        size_t responselen);
@@ -715,6 +711,7 @@ int sendRequestStringsResponse(int slotId,
 
 pthread_rwlock_t * getRadioServiceRwlock(int slotId);
 
+int processRadioState(int newRadioState, int slotId, int indicationType, int token, RIL_Errno e);
 }   // namespace radio
 
 #endif  // RIL_SERVICE_H
