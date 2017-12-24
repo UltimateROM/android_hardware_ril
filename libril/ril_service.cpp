@@ -3717,11 +3717,11 @@ int radio::getDataRegistrationStateResponse(int slotId,
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else if (s_vendorFunctions->version <= 14) {
             int numStrings = responseLen / sizeof(char *);
-            if ((numStrings != 6) && (numStrings != 11) && (numStrings != nstrings)) {
-                RLOGE("%s: Invalid response: Expected strings: %d Found :%d",
-                    __func__, nstrings, numStrings);
+            /*if ((numStrings != 6) && (numStrings != 11) && (numStrings != nstrings)) {
+                RLOGE("getDataRegistrationStateResponse Invalid response: NULL");
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
-            } else {
+            } else {*/
+                RLOGE("getDataRegistrationStateResponse: numStrings=%d", numStrings);
                 char **resp = (char **) response;
                 dataRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
                 dataRegResponse.rat =  ATOI_NULL_HANDLED_DEF(resp[3], 0);
@@ -3733,7 +3733,7 @@ int radio::getDataRegistrationStateResponse(int slotId,
                     dataRegResponse.maxDataCalls =  ATOI_NULL_HANDLED_DEF(resp[5], 1);
                 fillCellIdentityFromDataRegStateResponseString(dataRegResponse.cellIdentity,
                         numStrings, resp);
-            }
+            //}
         } else {
             RIL_DataRegistrationStateResponse *dataRegState =
                     (RIL_DataRegistrationStateResponse *)response;
