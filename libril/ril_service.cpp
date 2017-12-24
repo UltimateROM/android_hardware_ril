@@ -6562,12 +6562,16 @@ void convertRilSignalStrengthToHalV5(void *response, size_t responseLen,
 
 void convertRilSignalStrengthToHalV6(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
-    RIL_SignalStrength_v6 *rilSignalStrength = (RIL_SignalStrength_v6 *) response;
+    RIL_SignalStrength_v6 *rilSignalStrength;
     int gsmSignalStrength;
     int cdmaDbm;
     int evdoDbm;
 
-    gsmSignalStrength = rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF;
+    rilSignalStrength = (RIL_SignalStrength_v6 *) response;
+
+    //Samsung sends the count of bars that should be displayed instead of
+    //a real signal strength
+    gsmSignalStrength = ((rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF00) >> 8) * 3; //gsmDbm
 
 #ifdef MODEM_TYPE_XMM6260
         if (gsmSignalStrength < 0 ||
@@ -6811,6 +6815,8 @@ void convertRilSignalStrengthToHalV10(void *response, size_t responseLen,
 
 void convertRilSignalStrengthToHal(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
+    //RLOGE("convertRilSignalStrengthToHal: responseLen = %d, should be (%d, %d, %d or %d)", responseLen, sizeof(RIL_SignalStrength_v5), sizeof(RIL_SignalStrength_v6), sizeof(RIL_SignalStrength_v8), sizeof(RIL_SignalStrength_v10));
+
     if (responseLen == sizeof(RIL_SignalStrength_v5)) {
         convertRilSignalStrengthToHalV5(response, responseLen, signalStrength);
     } else if (responseLen == sizeof(RIL_SignalStrength_v6)) {
