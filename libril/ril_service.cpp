@@ -3612,18 +3612,31 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL");
                if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else if (s_vendorFunctions->version <= 14) {
-            if (numStrings != 15) {
-                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL");
+            if (numStrings < 3) {
+                RLOGE("%s Invalid response: Expected numStrings >= 3 (received:%d)",
+                    __func__, numStrings);
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
             } else {
                 char **resp = (char **) response;
                 voiceRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
-                voiceRegResponse.rat = ATOI_NULL_HANDLED(resp[3]);
-                voiceRegResponse.cssSupported = ATOI_NULL_HANDLED_DEF(resp[7], 0);
-                voiceRegResponse.roamingIndicator = ATOI_NULL_HANDLED(resp[10]);
-                voiceRegResponse.systemIsInPrl = ATOI_NULL_HANDLED_DEF(resp[11], 0);
-                voiceRegResponse.defaultRoamingIndicator = ATOI_NULL_HANDLED_DEF(resp[12], 0);
-                voiceRegResponse.reasonForDenial = ATOI_NULL_HANDLED_DEF(resp[13], 0);
+                voiceRegResponse.rat = NULL;
+                voiceRegResponse.cssSupported = 0;
+                voiceRegResponse.roamingIndicator = NULL;
+                voiceRegResponse.systemIsInPrl = 0;
+                voiceRegResponse.defaultRoamingIndicator = 0;
+                voiceRegResponse.reasonForDenial = 0;
+                if (numStrings > 3)
+                    voiceRegResponse.rat = ATOI_NULL_HANDLED(resp[3]);
+                if (numStrings > 7)
+                    voiceRegResponse.cssSupported = ATOI_NULL_HANDLED_DEF(resp[7], 0);
+                if (numStrings > 10)
+                    voiceRegResponse.roamingIndicator = ATOI_NULL_HANDLED(resp[10]);
+                if (numStrings > 11)
+                    voiceRegResponse.systemIsInPrl = ATOI_NULL_HANDLED_DEF(resp[11], 0);
+                if (numStrings > 12)
+                    voiceRegResponse.defaultRoamingIndicator = ATOI_NULL_HANDLED_DEF(resp[12], 0);
+                if (numStrings > 13)
+                    voiceRegResponse.reasonForDenial = ATOI_NULL_HANDLED_DEF(resp[13], 0);
                 fillCellIdentityFromVoiceRegStateResponseString(voiceRegResponse.cellIdentity,
                         numStrings, resp);
             }
