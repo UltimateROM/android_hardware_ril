@@ -3680,14 +3680,19 @@ int radio::getDataRegistrationStateResponse(int slotId,
         } else if (s_vendorFunctions->version <= 14) {
             int numStrings = responseLen / sizeof(char *);
             if ((numStrings != 6) && (numStrings != 11) && (numStrings != nstrings)) {
-                RLOGE("getDataRegistrationStateResponse Invalid response: NULL");
+                RLOGE("%s: Invalid response: Expected strings: %d Found :%d",
+                    __func__, nstrings, numStrings);
                 if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
             } else {
                 char **resp = (char **) response;
                 dataRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
                 dataRegResponse.rat =  ATOI_NULL_HANDLED_DEF(resp[3], 0);
-                dataRegResponse.reasonDataDenied =  ATOI_NULL_HANDLED(resp[4]);
-                dataRegResponse.maxDataCalls =  ATOI_NULL_HANDLED_DEF(resp[5], 1);
+                dataRegResponse.reasonDataDenied = NULL;
+                dataRegResponse.maxDataCalls = 1;
+                if (numStrings > 4)
+                    dataRegResponse.reasonDataDenied =  ATOI_NULL_HANDLED(resp[4]);
+                if (numStrings > 5)
+                    dataRegResponse.maxDataCalls =  ATOI_NULL_HANDLED_DEF(resp[5], 1);
                 fillCellIdentityFromDataRegStateResponseString(dataRegResponse.cellIdentity,
                         numStrings, resp);
             }
