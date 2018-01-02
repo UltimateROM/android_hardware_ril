@@ -2455,32 +2455,10 @@ int radio::getIccCardStatusResponse(int slotId,
         RadioResponseInfo responseInfo = {};
         populateResponseInfo(responseInfo, serial, responseType, e);
         CardStatus cardStatus = {};
-        if (response != NULL && responseLen == sizeof(RIL_CardStatus_v6)) {
-            RIL_CardStatus_v6 *p_cur = ((RIL_CardStatus_v6 *) response);
-            cardStatus.cardState = (CardState) p_cur->card_state;
-            cardStatus.universalPinState = (PinState) p_cur->universal_pin_state;
-            cardStatus.gsmUmtsSubscriptionAppIndex = p_cur->gsm_umts_subscription_app_index;
-            cardStatus.cdmaSubscriptionAppIndex = p_cur->cdma_subscription_app_index;
-            cardStatus.imsSubscriptionAppIndex = p_cur->ims_subscription_app_index;
-
-            RIL_AppStatus *rilAppStatus = p_cur->applications;
-            cardStatus.applications.resize(p_cur->num_applications);
-            AppStatus *appStatus = cardStatus.applications.data();
-#if VDBG
-            RLOGD("getIccCardStatusResponse: num_applications %d", p_cur->num_applications);
-#endif
-            for (int i = 0; i < p_cur->num_applications; i++) {
-                appStatus[i].appType = (AppType) rilAppStatus[i].app_type;
-                appStatus[i].appState = (AppState) rilAppStatus[i].app_state;
-                appStatus[i].persoSubstate = (PersoSubstate) rilAppStatus[i].perso_substate;
-                appStatus[i].aidPtr = convertCharPtrToHidlString(rilAppStatus[i].aid_ptr);
-                appStatus[i].appLabelPtr = convertCharPtrToHidlString(
-                        rilAppStatus[i].app_label_ptr);
-                appStatus[i].pin1Replaced = rilAppStatus[i].pin1_replaced;
-                appStatus[i].pin1 = (PinState) rilAppStatus[i].pin1;
-                appStatus[i].pin2 = (PinState) rilAppStatus[i].pin2;
-            }
-        } else if (response != NULL && (responseLen == sizeof(RIL_CardStatus_v5) || responseLen == 436)) {
+        if (response == NULL) {
+            RLOGE("getIccCardStatusResponse: Invalid response");
+            if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
+        } else if (responseLen == sizeof(RIL_CardStatus_v5) || responseLen == 436) {
             RIL_CardStatus_v5 *p_cur = ((RIL_CardStatus_v5 *) response);
             cardStatus.cardState = (CardState) p_cur->card_state;
             cardStatus.universalPinState = (PinState) p_cur->universal_pin_state;
@@ -2505,8 +2483,34 @@ int radio::getIccCardStatusResponse(int slotId,
                 appStatus[i].pin1 = (PinState) rilAppStatus[i].pin1;
                 appStatus[i].pin2 = (PinState) rilAppStatus[i].pin2;
             }
+        } else if (responseLen == sizeof(RIL_CardStatus_v6)) {
+            RIL_CardStatus_v6 *p_cur = ((RIL_CardStatus_v6 *) response);
+            cardStatus.cardState = (CardState) p_cur->card_state;
+            cardStatus.universalPinState = (PinState) p_cur->universal_pin_state;
+            cardStatus.gsmUmtsSubscriptionAppIndex = p_cur->gsm_umts_subscription_app_index;
+            cardStatus.cdmaSubscriptionAppIndex = p_cur->cdma_subscription_app_index;
+            cardStatus.imsSubscriptionAppIndex = p_cur->ims_subscription_app_index;
+
+            RIL_AppStatus *rilAppStatus = p_cur->applications;
+            cardStatus.applications.resize(p_cur->num_applications);
+            AppStatus *appStatus = cardStatus.applications.data();
+#if VDBG
+            RLOGD("getIccCardStatusResponse: num_applications %d", p_cur->num_applications);
+#endif
+            for (int i = 0; i < p_cur->num_applications; i++) {
+                appStatus[i].appType = (AppType) rilAppStatus[i].app_type;
+                appStatus[i].appState = (AppState) rilAppStatus[i].app_state;
+                appStatus[i].persoSubstate = (PersoSubstate) rilAppStatus[i].perso_substate;
+                appStatus[i].aidPtr = convertCharPtrToHidlString(rilAppStatus[i].aid_ptr);
+                appStatus[i].appLabelPtr = convertCharPtrToHidlString(
+                        rilAppStatus[i].app_label_ptr);
+                appStatus[i].pin1Replaced = rilAppStatus[i].pin1_replaced;
+                appStatus[i].pin1 = (PinState) rilAppStatus[i].pin1;
+                appStatus[i].pin2 = (PinState) rilAppStatus[i].pin2;
+            }
         } else {
-            RLOGE("getIccCardStatusResponse: Invalid response");
+            RLOGE("%s: Invalid response: Unsupported RIL_CardStatus (%d)",
+                __func__, responseLen);
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         }
 
@@ -2692,7 +2696,7 @@ int radio::getCurrentCallsResponse(int slotId,
                 RIL_Call *p_cur = ((RIL_Call **) response)[i];
                 /* each call info */
                 calls[i].state = (CallState) p_cur->state;
-                calls[i].index = p_cur->index & 0xff;
+                calls[i].index = p_cur->index;
                 calls[i].toa = p_cur->toa;
                 calls[i].isMpty = p_cur->isMpty;
                 calls[i].isMT = p_cur->isMT;
@@ -2703,8 +2707,13 @@ int radio::getCurrentCallsResponse(int slotId,
                 calls[i].numberPresentation = (CallPresentation) p_cur->numberPresentation;
                 calls[i].name = convertCharPtrToHidlString(p_cur->name);
                 calls[i].namePresentation = (CallPresentation) p_cur->namePresentation;
-                if (p_cur->uusInfo != NULL && p_cur->uusInfo->uusData != NULL) {
+                //if (p_cur->uusInfo != NULL && p_cur->uusInfo->uusData != NULL) {
+                // Remove when partners upgrade to version 3
+                if ((s_vendorFunctions->version < 3) || (p_cur->uusInfo == NULL || p_cur->uusInfo->uusData == NULL)) {
+                    calls[i].uusInfo.resize(0); /* UUS Information is absent */
+                } else {
                     RIL_UUS_Info *uusInfo = p_cur->uusInfo;
+                    calls[i].uusInfo.resize(1); /* UUS Information is present */
                     calls[i].uusInfo[0].uusType = (UusType) uusInfo->uusType;
                     calls[i].uusInfo[0].uusDcs = (UusDcs) uusInfo->uusDcs;
                     // convert uusInfo->uusData to a null-terminated string
@@ -2945,8 +2954,9 @@ int radio::getSignalStrengthResponse(int slotId,
         if (response == NULL || (responseLen != sizeof(RIL_SignalStrength_v10)
                 && responseLen != sizeof(RIL_SignalStrength_v8)
                 && responseLen != sizeof(RIL_SignalStrength_v6)
-                && responseLen != sizeof(RIL_SignalStrength_v5))) {
-            RLOGE("getSignalStrengthResponse: Invalid response");
+                && responseLen != sizeof(RIL_SignalStrength_v5)
+                && responseLen != 48)) {
+            RLOGE("getSignalStrengthResponse: responseLen = %d", responseLen);
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else {
             convertRilSignalStrengthToHal(response, responseLen, signalStrength);
@@ -3268,10 +3278,6 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL, response == NULL");
                if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else if (s_vendorFunctions->version <= 14) {
-            /*if (numStrings != 15) {
-                RLOGE("getVoiceRegistrationStateResponse Invalid response: NULL, numStrings != 15 (%d)", numStrings);
-                if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
-            } else {*/
                 char **resp = (char **) response;
                 voiceRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
                 voiceRegResponse.rat = ATOI_NULL_HANDLED(resp[3]);
@@ -3282,7 +3288,6 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
                 voiceRegResponse.reasonForDenial = ATOI_NULL_HANDLED_DEF(resp[13], 0);
                 fillCellIdentityFromVoiceRegStateResponseString(voiceRegResponse.cellIdentity,
                         numStrings, resp);
-            //}
         } else {
             RIL_VoiceRegistrationStateResponse *voiceRegState =
                     (RIL_VoiceRegistrationStateResponse *)response;
@@ -3321,10 +3326,6 @@ int radio::getDataRegistrationStateResponse(int slotId,
 #if VDBG
     RLOGD("getDataRegistrationStateResponse: serial %d", serial);
 #endif
-    char value[PROPERTY_VALUE_MAX];
-    int nstrings;
-    property_get("ro.ril.telephony.nstrings", value, "6");
-    nstrings = atoi(value);
 
     if (radioService[slotId]->mRadioResponse != NULL) {
         RadioResponseInfo responseInfo = {};
@@ -3335,10 +3336,6 @@ int radio::getDataRegistrationStateResponse(int slotId,
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
         } else if (s_vendorFunctions->version <= 14) {
             int numStrings = responseLen / sizeof(char *);
-            /*if ((numStrings != 6) && (numStrings != 11) && (numStrings != nstrings)) {
-                RLOGE("getDataRegistrationStateResponse Invalid response: NULL");
-                if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
-            } else {*/
                 RLOGE("getDataRegistrationStateResponse: numStrings=%d", numStrings);
                 char **resp = (char **) response;
                 dataRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
@@ -3347,7 +3344,6 @@ int radio::getDataRegistrationStateResponse(int slotId,
                 dataRegResponse.maxDataCalls =  ATOI_NULL_HANDLED_DEF(resp[5], 1);
                 fillCellIdentityFromDataRegStateResponseString(dataRegResponse.cellIdentity,
                         numStrings, resp);
-            //}
         } else {
             RIL_DataRegistrationStateResponse *dataRegState =
                     (RIL_DataRegistrationStateResponse *)response;
@@ -3394,7 +3390,6 @@ int radio::getOperatorResponse(int slotId,
         hidl_string shortName;
         hidl_string numeric;
         int numStrings = responseLen / sizeof(char *);
-        //RLOGE("getOperatorResponse: numStrings = %d, should be %d", numStrings, mqanelements - 2);
         if (response == NULL || numStrings != mqanelements - 2) {
             RLOGE("getOperatorResponse Invalid response: NULL");
             if (e == RIL_E_SUCCESS) responseInfo.error = RadioError::INVALID_RESPONSE;
@@ -4035,7 +4030,7 @@ int radio::getAvailableNetworksResponse(int slotId,
 #endif
     int mqanelements;
     char value[PROPERTY_VALUE_MAX];
-    property_get("ro.ril.telephony.mqanelements", value, "4");
+    property_get("ro.ril.telephony.mqanelements", value, "5");
 	mqanelements = atoi(value);
 
     if (radioService[slotId]->mRadioResponse != NULL) {
@@ -6510,51 +6505,17 @@ void convertRilSignalStrengthToHalV5(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
     RIL_SignalStrength_v5 *rilSignalStrength = (RIL_SignalStrength_v5 *) response;
     int gsmSignalStrength;
-    int cdmaDbm;
-    int evdoDbm;
 
-    gsmSignalStrength = rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF;
-
-#ifdef MODEM_TYPE_XMM6260
-        if (gsmSignalStrength < 0 ||
-                (gsmSignalStrength > 31 && rilSignalStrength->GW_SignalStrength.signalStrength != 99)) {
-            gsmSignalStrength = rilSignalStrength->CDMA_SignalStrength.dbm;
-        }
-#else
-        if (gsmSignalStrength < 0) {
-            gsmSignalStrength = 99;
-        } else if (gsmSignalStrength > 31 && gsmSignalStrength != 99) {
-            gsmSignalStrength = 31;
-        }
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm & 0xFF;
-        if (cdmaDbm < 0) {
-            cdmaDbm = 99;
-        } else if (cdmaDbm > 31 && cdmaDbm != 99) {
-            cdmaDbm = 31;
-        }
-#else
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm;
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm & 0xFF;
-        if (evdoDbm < 0) {
-            evdoDbm = 99;
-        } else if (evdoDbm > 31 && evdoDbm != 99) {
-            evdoDbm = 31;
-        }
-#else
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm;
-#endif
+    //signalStrength.gw.signalStrength = rilSignalStrength->GW_SignalStrength.signalStrength;
+    //Samsung sends the count of bars that should be displayed instead of
+    //a real signal strength
+    gsmSignalStrength = ((rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF00) >> 8) * 3; //gsmDbm
 
     signalStrength.gw.signalStrength = gsmSignalStrength;
     signalStrength.gw.bitErrorRate = rilSignalStrength->GW_SignalStrength.bitErrorRate;
-    signalStrength.cdma.dbm = cdmaDbm;
+    signalStrength.cdma.dbm = rilSignalStrength->CDMA_SignalStrength.dbm;
     signalStrength.cdma.ecio = rilSignalStrength->CDMA_SignalStrength.ecio;
-    signalStrength.evdo.dbm = evdoDbm;
+    signalStrength.evdo.dbm = rilSignalStrength->EVDO_SignalStrength.dbm;
     signalStrength.evdo.ecio = rilSignalStrength->EVDO_SignalStrength.ecio;
     signalStrength.evdo.signalNoiseRatio =
             rilSignalStrength->EVDO_SignalStrength.signalNoiseRatio;
@@ -6569,51 +6530,7 @@ void convertRilSignalStrengthToHalV5(void *response, size_t responseLen,
 
 void convertRilSignalStrengthToHalV6(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
-    RIL_SignalStrength_v6 *rilSignalStrength;
-    int gsmSignalStrength;
-    int cdmaDbm;
-    int evdoDbm;
-
-    rilSignalStrength = (RIL_SignalStrength_v6 *) response;
-
-    //Samsung sends the count of bars that should be displayed instead of
-    //a real signal strength
-    gsmSignalStrength = ((rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF00) >> 8) * 3; //gsmDbm
-
-#ifdef MODEM_TYPE_XMM6260
-        if (gsmSignalStrength < 0 ||
-                (gsmSignalStrength > 31 && rilSignalStrength->GW_SignalStrength.signalStrength != 99)) {
-            gsmSignalStrength = rilSignalStrength->CDMA_SignalStrength.dbm;
-        }
-#else
-        if (gsmSignalStrength < 0) {
-            gsmSignalStrength = 99;
-        } else if (gsmSignalStrength > 31 && gsmSignalStrength != 99) {
-            gsmSignalStrength = 31;
-        }
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm & 0xFF;
-        if (cdmaDbm < 0) {
-            cdmaDbm = 99;
-        } else if (cdmaDbm > 31 && cdmaDbm != 99) {
-            cdmaDbm = 31;
-        }
-#else
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm;
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm & 0xFF;
-        if (evdoDbm < 0) {
-            evdoDbm = 99;
-        } else if (evdoDbm > 31 && evdoDbm != 99) {
-            evdoDbm = 31;
-        }
-#else
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm;
-#endif
+    RIL_SignalStrength_v6 *rilSignalStrength = (RIL_SignalStrength_v6 *) response;
 
     // Fixup LTE for backwards compatibility
     // signalStrength: -1 -> 99
@@ -6637,11 +6554,11 @@ void convertRilSignalStrengthToHalV6(void *response, size_t responseLen,
         rilSignalStrength->LTE_SignalStrength.cqi = INT_MAX;
     }
 
-    signalStrength.gw.signalStrength = gsmSignalStrength;
+    signalStrength.gw.signalStrength = rilSignalStrength->GW_SignalStrength.signalStrength;
     signalStrength.gw.bitErrorRate = rilSignalStrength->GW_SignalStrength.bitErrorRate;
-    signalStrength.cdma.dbm = cdmaDbm;
+    signalStrength.cdma.dbm = rilSignalStrength->CDMA_SignalStrength.dbm;
     signalStrength.cdma.ecio = rilSignalStrength->CDMA_SignalStrength.ecio;
-    signalStrength.evdo.dbm = evdoDbm;
+    signalStrength.evdo.dbm = rilSignalStrength->EVDO_SignalStrength.dbm;
     signalStrength.evdo.ecio = rilSignalStrength->EVDO_SignalStrength.ecio;
     signalStrength.evdo.signalNoiseRatio =
             rilSignalStrength->EVDO_SignalStrength.signalNoiseRatio;
@@ -6657,46 +6574,6 @@ void convertRilSignalStrengthToHalV6(void *response, size_t responseLen,
 void convertRilSignalStrengthToHalV8(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
     RIL_SignalStrength_v8 *rilSignalStrength = (RIL_SignalStrength_v8 *) response;
-    int gsmSignalStrength;
-    int cdmaDbm;
-    int evdoDbm;
-
-    gsmSignalStrength = rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF;
-
-#ifdef MODEM_TYPE_XMM6260
-        if (gsmSignalStrength < 0 ||
-                (gsmSignalStrength > 31 && rilSignalStrength->GW_SignalStrength.signalStrength != 99)) {
-            gsmSignalStrength = rilSignalStrength->CDMA_SignalStrength.dbm;
-        }
-#else
-        if (gsmSignalStrength < 0) {
-            gsmSignalStrength = 99;
-        } else if (gsmSignalStrength > 31 && gsmSignalStrength != 99) {
-            gsmSignalStrength = 31;
-        }
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm & 0xFF;
-        if (cdmaDbm < 0) {
-            cdmaDbm = 99;
-        } else if (cdmaDbm > 31 && cdmaDbm != 99) {
-            cdmaDbm = 31;
-        }
-#else
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm;
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm & 0xFF;
-        if (evdoDbm < 0) {
-            evdoDbm = 99;
-        } else if (evdoDbm > 31 && evdoDbm != 99) {
-            evdoDbm = 31;
-        }
-#else
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm;
-#endif
 
     // Fixup LTE for backwards compatibility
     // signalStrength: -1 -> 99
@@ -6720,11 +6597,11 @@ void convertRilSignalStrengthToHalV8(void *response, size_t responseLen,
         rilSignalStrength->LTE_SignalStrength.cqi = INT_MAX;
     }
 
-    signalStrength.gw.signalStrength = gsmSignalStrength;
+    signalStrength.gw.signalStrength = rilSignalStrength->GW_SignalStrength.signalStrength;
     signalStrength.gw.bitErrorRate = rilSignalStrength->GW_SignalStrength.bitErrorRate;
-    signalStrength.cdma.dbm = cdmaDbm;
+    signalStrength.cdma.dbm = rilSignalStrength->CDMA_SignalStrength.dbm;
     signalStrength.cdma.ecio = rilSignalStrength->CDMA_SignalStrength.ecio;
-    signalStrength.evdo.dbm = evdoDbm;
+    signalStrength.evdo.dbm = rilSignalStrength->EVDO_SignalStrength.dbm;
     signalStrength.evdo.ecio = rilSignalStrength->EVDO_SignalStrength.ecio;
     signalStrength.evdo.signalNoiseRatio =
             rilSignalStrength->EVDO_SignalStrength.signalNoiseRatio;
@@ -6740,46 +6617,6 @@ void convertRilSignalStrengthToHalV8(void *response, size_t responseLen,
 void convertRilSignalStrengthToHalV10(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
     RIL_SignalStrength_v10 *rilSignalStrength = (RIL_SignalStrength_v10 *) response;
-    int gsmSignalStrength;
-    int cdmaDbm;
-    int evdoDbm;
-
-    gsmSignalStrength = rilSignalStrength->GW_SignalStrength.signalStrength & 0xFF;
-
-#ifdef MODEM_TYPE_XMM6260
-        if (gsmSignalStrength < 0 ||
-                (gsmSignalStrength > 31 && rilSignalStrength->GW_SignalStrength.signalStrength != 99)) {
-            gsmSignalStrength = rilSignalStrength->CDMA_SignalStrength.dbm;
-        }
-#else
-        if (gsmSignalStrength < 0) {
-            gsmSignalStrength = 99;
-        } else if (gsmSignalStrength > 31 && gsmSignalStrength != 99) {
-            gsmSignalStrength = 31;
-        }
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm & 0xFF;
-        if (cdmaDbm < 0) {
-            cdmaDbm = 99;
-        } else if (cdmaDbm > 31 && cdmaDbm != 99) {
-            cdmaDbm = 31;
-        }
-#else
-        cdmaDbm = rilSignalStrength->CDMA_SignalStrength.dbm;
-#endif
-
-#if defined(MODEM_TYPE_XMM6262) || defined(SAMSUNG_NEXT_GEN_MODEM)
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm & 0xFF;
-        if (evdoDbm < 0) {
-            evdoDbm = 99;
-        } else if (evdoDbm > 31 && evdoDbm != 99) {
-            evdoDbm = 31;
-        }
-#else
-        evdoDbm = rilSignalStrength->EVDO_SignalStrength.dbm;
-#endif
 
     // Fixup LTE for backwards compatibility
     // signalStrength: -1 -> 99
@@ -6803,11 +6640,11 @@ void convertRilSignalStrengthToHalV10(void *response, size_t responseLen,
         rilSignalStrength->LTE_SignalStrength.cqi = INT_MAX;
     }
 
-    signalStrength.gw.signalStrength = gsmSignalStrength;
+    signalStrength.gw.signalStrength = rilSignalStrength->GW_SignalStrength.signalStrength;
     signalStrength.gw.bitErrorRate = rilSignalStrength->GW_SignalStrength.bitErrorRate;
-    signalStrength.cdma.dbm = cdmaDbm;
+    signalStrength.cdma.dbm = rilSignalStrength->CDMA_SignalStrength.dbm;
     signalStrength.cdma.ecio = rilSignalStrength->CDMA_SignalStrength.ecio;
-    signalStrength.evdo.dbm = evdoDbm;
+    signalStrength.evdo.dbm = rilSignalStrength->EVDO_SignalStrength.dbm;
     signalStrength.evdo.ecio = rilSignalStrength->EVDO_SignalStrength.ecio;
     signalStrength.evdo.signalNoiseRatio =
             rilSignalStrength->EVDO_SignalStrength.signalNoiseRatio;
@@ -6822,9 +6659,7 @@ void convertRilSignalStrengthToHalV10(void *response, size_t responseLen,
 
 void convertRilSignalStrengthToHal(void *response, size_t responseLen,
         SignalStrength& signalStrength) {
-    //RLOGE("convertRilSignalStrengthToHal: responseLen = %d, should be (%d, %d, %d or %d)", responseLen, sizeof(RIL_SignalStrength_v5), sizeof(RIL_SignalStrength_v6), sizeof(RIL_SignalStrength_v8), sizeof(RIL_SignalStrength_v10));
-
-    if (responseLen == sizeof(RIL_SignalStrength_v5)) {
+    if (responseLen == sizeof(RIL_SignalStrength_v5) || responseLen == 48) {
         convertRilSignalStrengthToHalV5(response, responseLen, signalStrength);
     } else if (responseLen == sizeof(RIL_SignalStrength_v6)) {
         convertRilSignalStrengthToHalV6(response, responseLen, signalStrength);
@@ -6840,13 +6675,17 @@ int radio::currentSignalStrengthInd(int slotId,
                                     void *response, size_t responseLen) {
     if (radioService[slotId] != NULL && radioService[slotId]->mRadioIndication != NULL) {
         if (response == NULL || (responseLen != sizeof(RIL_SignalStrength_v10)
-                && responseLen != sizeof(RIL_SignalStrength_v8))) {
-            RLOGE("currentSignalStrengthInd: invalid response");
+                && responseLen != sizeof(RIL_SignalStrength_v8)
+                && responseLen != sizeof(RIL_SignalStrength_v6)
+                && responseLen != sizeof(RIL_SignalStrength_v5)
+                && responseLen != 48)) {
+            RLOGE("currentSignalStrengthInd: responseLen = %d", responseLen);
             return 0;
         }
 
         SignalStrength signalStrength = {};
         convertRilSignalStrengthToHal(response, responseLen, signalStrength);
+        //RLOGE("currentSignalStrengthInd: responseLen = %d", responseLen);
 
 #if VDBG
         RLOGD("currentSignalStrengthInd");
@@ -6872,7 +6711,7 @@ void convertRilDataCallToHal(RIL_Data_Call_Response_v6 *dcResponse,
     dcResult.ifname = convertCharPtrToHidlString(dcResponse->ifname);
     dcResult.addresses = convertCharPtrToHidlString(dcResponse->addresses);
     dcResult.dnses = convertCharPtrToHidlString(dcResponse->dnses);
-#if defined(MODEM_TYPE_XMM6262) || defined(MODEM_TYPE_XMM6260)
+#ifdef SAMSUNG_NEXT_GEN_MODEM
     dcResult.gateways = convertCharPtrToHidlString(dcResponse->addresses);
 #else
     dcResult.gateways = convertCharPtrToHidlString(dcResponse->gateways);
