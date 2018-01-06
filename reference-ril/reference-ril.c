@@ -37,7 +37,7 @@
 #include <cutils/sockets.h>
 #include <sys/system_properties.h>
 #include <termios.h>
-#include <system/qemu_pipe.h>
+//#include <system/qemu_pipe.h>
 
 #include "ril.h"
 
@@ -3428,7 +3428,8 @@ mainLoop(void *param __unused)
     AT_DUMP("== ", "entering mainLoop()", -1 );
     at_set_on_reader_closed(onATReaderClosed);
     at_set_on_timeout(onATTimeout);
-
+    return NULL;
+#if 0
     for (;;) {
         fd = -1;
         while  (fd < 0) {
@@ -3457,7 +3458,6 @@ mainLoop(void *param __unused)
                 /* never returns */
             }
         }
-
         s_closed = 0;
         ret = at_open(fd, onUnsolicited);
 
@@ -3475,6 +3475,7 @@ mainLoop(void *param __unused)
         waitForClose();
         RLOGI("Re-opening after close");
     }
+#endif
 }
 
 #ifdef RIL_SHLIB
