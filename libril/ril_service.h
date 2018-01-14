@@ -741,6 +741,8 @@ int carrierInfoForImsiEncryption(int slotId,
                         int responseType, int serial, RIL_Errno e,
                         void *response, size_t responseLen);
 
+int processRadioState(int newRadioState, int slotId, int indicationType, int token, RIL_Errno e);
+
 pthread_rwlock_t * getRadioServiceRwlock(int slotId);
 
 }   // namespace radio
