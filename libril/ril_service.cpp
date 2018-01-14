@@ -3859,12 +3859,24 @@ int radio::getVoiceRegistrationStateResponse(int slotId,
         } else if (s_vendorFunctions->version <= 14) {
                 char **resp = (char **) response;
                 voiceRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
-                voiceRegResponse.rat = ATOI_NULL_HANDLED(resp[3]);
-                voiceRegResponse.cssSupported = ATOI_NULL_HANDLED_DEF(resp[7], 0);
-                voiceRegResponse.roamingIndicator = ATOI_NULL_HANDLED(resp[10]);
-                voiceRegResponse.systemIsInPrl = ATOI_NULL_HANDLED_DEF(resp[11], 0);
-                voiceRegResponse.defaultRoamingIndicator = ATOI_NULL_HANDLED_DEF(resp[12], 0);
-                voiceRegResponse.reasonForDenial = ATOI_NULL_HANDLED_DEF(resp[13], 0);
+                voiceRegResponse.rat = NULL;
+                voiceRegResponse.cssSupported = 0;
+                voiceRegResponse.roamingIndicator = NULL;
+                voiceRegResponse.systemIsInPrl = 0;
+                voiceRegResponse.defaultRoamingIndicator = 0;
+                voiceRegResponse.reasonForDenial = 0;
+                if (numStrings > 3)
+                    voiceRegResponse.rat = ATOI_NULL_HANDLED(resp[3]);
+                if (numStrings > 7)
+                    voiceRegResponse.cssSupported = ATOI_NULL_HANDLED_DEF(resp[7], 0);
+                if (numStrings > 10)
+                    voiceRegResponse.roamingIndicator = ATOI_NULL_HANDLED(resp[10]);
+                if (numStrings > 11)
+                    voiceRegResponse.systemIsInPrl = ATOI_NULL_HANDLED_DEF(resp[11], 0);
+                if (numStrings > 12)
+                    voiceRegResponse.defaultRoamingIndicator = ATOI_NULL_HANDLED_DEF(resp[12], 0);
+                if (numStrings > 13)
+                    voiceRegResponse.reasonForDenial = ATOI_NULL_HANDLED_DEF(resp[13], 0);
                 fillCellIdentityFromVoiceRegStateResponseString(voiceRegResponse.cellIdentity,
                         numStrings, resp);
         } else {
@@ -3919,8 +3931,12 @@ int radio::getDataRegistrationStateResponse(int slotId,
                 char **resp = (char **) response;
                 dataRegResponse.regState = (RegState) ATOI_NULL_HANDLED_DEF(resp[0], 4);
                 dataRegResponse.rat =  ATOI_NULL_HANDLED_DEF(resp[3], 0);
-                dataRegResponse.reasonDataDenied =  ATOI_NULL_HANDLED(resp[4]);
-                dataRegResponse.maxDataCalls =  ATOI_NULL_HANDLED_DEF(resp[5], 1);
+                dataRegResponse.reasonDataDenied = NULL;
+                dataRegResponse.maxDataCalls = 1;
+                if (numStrings > 4)
+                    dataRegResponse.reasonDataDenied =  ATOI_NULL_HANDLED(resp[4]);
+                if (numStrings > 5)
+                    dataRegResponse.maxDataCalls =  ATOI_NULL_HANDLED_DEF(resp[5], 1);
                 fillCellIdentityFromDataRegStateResponseString(dataRegResponse.cellIdentity,
                         numStrings, resp);
         } else {
